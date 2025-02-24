@@ -1,3 +1,7 @@
 libcairo2-dev
 libfreetype6-dev
 libpng-dev
+libx11-dev
+libxrender-dev
+libxi-dev
+libxext-dev
