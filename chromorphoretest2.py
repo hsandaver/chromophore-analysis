@@ -1,10 +1,9 @@
-"""
-Enhanced Dye Color Analysis App
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-This app analyzes molecules, estimates dye colors using a Woodward–Fieser-inspired approach,
-and visualizes them in 2D or 3D. If RDKit’s full drawing functionality isn’t available,
-the app will fall back gracefully.
-"""
+import streamlit as st
+st.set_page_config(
+    page_title="Dye Color Analysis - Enhanced",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 import re
 import warnings
@@ -12,11 +11,10 @@ from io import BytesIO
 
 import altair as alt
 import pandas as pd
-import streamlit as st
 from PIL import Image
 import py3Dmol
 
-# Try importing RDKit modules. If the drawing module isn't available, set it to None.
+# Try to import RDKit modules. If full drawing support isn't available, warn the user.
 try:
     from rdkit import Chem, RDLogger
     from rdkit.Chem import Descriptors, rdMolDescriptors, AllChem, Draw
@@ -24,7 +22,6 @@ try:
     RDLogger.DisableLog('rdApp.*')
 except ImportError as e:
     st.error("RDKit modules could not be fully imported. Ensure RDKit is installed with full drawing support.")
-    # Fallback: attempt to import only the core chemistry modules.
     from rdkit import Chem
     Descriptors = None
     rdMolDescriptors = None
@@ -40,7 +37,8 @@ warnings.filterwarnings("ignore")
 
 CHROMOPHORE_PATTERNS = {
     'Azo': Chem.MolFromSmarts('N=N'),
-    'Anthraquinone': Chem.MolFromSmarts('C1=CC=C2C(=O)C=CC2=O'),
+    # Corrected anthraquinone SMARTS with closed rings:
+    'Anthraquinone': Chem.MolFromSmarts('O=C1C=CC2=CC=CC=C2C1=O'),
     'Nitro': Chem.MolFromSmarts('[NX3](=O)=O'),
     'Quinone': Chem.MolFromSmarts('O=C1C=CC=CC1=O'),
     'Indigoid': Chem.MolFromSmarts('C1C=CC(=O)NC1=O'),
@@ -54,7 +52,8 @@ CHROMOPHORE_PATTERNS = {
     'Squaraine': Chem.MolFromSmarts('C=CC=C'),
     'Metal Complex': Chem.MolFromSmarts('[!#1]'),
     'Bromine': Chem.MolFromSmarts('Br'),
-    'Selenium': Chem.MolFromSmarts('Se'),
+    # Updated Selenium SMARTS with square brackets:
+    'Selenium': Chem.MolFromSmarts('[Se]'),
     'Pyridine': Chem.MolFromSmarts('C1=CC=NC=C1'),
     'Phosphine': Chem.MolFromSmarts('P(C)(C)C'),
     'Carbene': Chem.MolFromSmarts('[C]')
@@ -69,7 +68,7 @@ AUXOCHROME_PATTERNS = {
 }
 
 ###########################################
-# Scientific λmax Estimation (Woodward–Fieser)
+# Scientific λmax Estimation (Woodward–Fieser-inspired)
 ###########################################
 
 LAMBDA_BASE_VALUES = {
@@ -100,7 +99,7 @@ def count_ring_fusions(mol):
     rings = ring_info.AtomRings()
     for i in range(len(rings)):
         ring_i = set(rings[i])
-        for j in range(i+1, len(rings)):
+        for j in range(i + 1, len(rings)):
             ring_j = set(rings[j])
             if len(ring_i.intersection(ring_j)) >= 2:
                 fusion_count += 1
@@ -211,7 +210,7 @@ def get_conjugation_length(mol):
                 neighbor = bond.GetOtherAtom(atom)
                 if neighbor.GetIdx() not in visited:
                     visited.add(neighbor.GetIdx())
-                    dfs(neighbor, visited, length+1)
+                    dfs(neighbor, visited, length + 1)
                     visited.remove(neighbor.GetIdx())
     for atom in mol.GetAtoms():
         dfs(atom, {atom.GetIdx()}, 0)
@@ -316,14 +315,22 @@ def process_file(df):
             descriptor_df[col] = None
     df = pd.concat([df, descriptor_df], axis=1)
     df.drop(columns=['Descriptors'], inplace=True)
-    color_results = df.apply(lambda x: estimate_color(x['Chromophore'], x['Auxochrome'], {
-        'MolWeight': x['MolWeight'],
-        'LogP': x['LogP'],
-        'TPSA': x['TPSA'],
-        'NumRings': x['NumRings'],
-        'NumDoubleBonds': x['NumDoubleBonds'],
-        'ConjugationLength': x['ConjugationLength']
-    }, x['Corrected_SMILES']), axis=1)
+    color_results = df.apply(
+        lambda x: estimate_color(
+            x['Chromophore'],
+            x['Auxochrome'],
+            {
+                'MolWeight': x['MolWeight'],
+                'LogP': x['LogP'],
+                'TPSA': x['TPSA'],
+                'NumRings': x['NumRings'],
+                'NumDoubleBonds': x['NumDoubleBonds'],
+                'ConjugationLength': x['ConjugationLength']
+            },
+            x['Corrected_SMILES']
+        ),
+        axis=1
+    )
     df['Estimated Color'] = color_results.apply(lambda tup: tup[0])
     df['ApproxLambda'] = color_results.apply(lambda tup: tup[1])
     return df
@@ -336,7 +343,7 @@ def visualize_smiles_2d(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol and Draw:
         try:
-            return Draw.MolToImage(mol, size=(250,250))
+            return Draw.MolToImage(mol, size=(250, 250))
         except Exception as e:
             st.error("2D drawing failed: " + str(e))
             return None
@@ -483,7 +490,6 @@ def display_single_smiles(visualize_option):
 ###########################################
 
 def main():
-    st.set_page_config(page_title="Dye Color Analysis - Enhanced", layout="wide", initial_sidebar_state="expanded")
     st.title("Enhanced Chromophore & Auxochrome Analysis App")
     st.markdown(
         """
