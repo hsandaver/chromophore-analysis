@@ -1,7 +1,7 @@
-streamlit==1.20.0
+streamlit==1.24.1
 numpy<2
-pandas==1.5.3
+pandas==2.2.2
 altair==4.2.0
-Pillow==9.4.0
-py3Dmol==0.2.2.0
+Pillow==10.0.0
+py3Dmol==2.4.2
 rdkit-pypi==2022.09.5
