@@ -4,4 +4,4 @@ pandas==2.2.2
 altair==4.2.0
 Pillow==9.5.0
 py3Dmol==2.4.2
-rdkit-pypi==2022.09.5
+rdkit-pypi==2023.03.3
